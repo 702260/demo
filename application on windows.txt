@@ -1,0 +1,126 @@
+#include "cpprest/http_listener.h"
+#include "cpprest/json.h"
+#define  _WINSOCK_DEPRECATED_NO_WARNINGS
+
+using namespace web;
+using namespace web::http;
+using namespace web::http::experimental::listener;
+
+#include <iostream>
+#include <string>
+#include <stdio.h>
+#include <stdlib.h>
+#include <errno.h>
+#include <sys/types.h>
+#include <winsock.h>
+#pragma comment(lib,"WS2_32")
+#include <wsipv6ok.h>
+
+
+using namespace std;
+
+#define TRACE(msg)            wcout << msg
+#define TRACE_ACTION(a, k, v) wcout << a << L" (" << k << L", " << v << L")\n"
+
+map<utility::string_t, utility::string_t> spec;
+
+void display_json(
+	json::value const & jvalue,
+	utility::string_t const & prefix)
+{
+	wcout << prefix << jvalue.serialize() << endl;
+}
+void check_host_name(int hostname) { //This function returns host name for local computer
+	if (hostname == -1) {
+		perror("gethostname");
+		exit(1);
+	}
+}
+void check_host_entry(struct hostent * hostentry) { //find host info from host name
+	if (hostentry == NULL) {
+		perror("gethostbyname");
+		exit(1);
+	}
+}
+void IP_formatter(char *IPbuffer) { //convert IP string to dotted decimal format
+	if (NULL == IPbuffer) {
+		perror("inet_ntoa");
+		exit(1);
+	}
+}
+
+
+
+void handle_get(http_request request)
+{
+	TRACE(L"\nhandle GET\n");
+	auto answer = json::value::object();
+	//string str = request.userhostname;
+
+		char host[256];
+		char *IP;
+		struct hostent *host_entry;
+		int hostname;
+		WSADATA wsa_Data;
+
+		int wsa_ReturnCode = WSAStartup(0x101, &wsa_Data);
+
+		hostname = gethostname(host, sizeof(host)); //find the host name
+	//	check_host_name(hostname);
+	//	       cout<<host[0]<<host[1]<<host[2];
+		host_entry = gethostbyname(host); //find host information
+	//		check_host_entry(host_entry);
+	//	int x = WSAGetLastError();
+	//	cout << x;
+		IP = inet_ntoa(*(struct in_addr*)* host_entry->h_addr_list); //Convert into IP string
+	//	printf("Current Host Name: %s\n", host);
+	//	printf("Host IP: %s\n", IP);
+		     
+		WSACleanup();
+
+	 answer [L"hostname"]= json::value::string(utility::conversions::to_utf16string("RT0820251"));
+	 answer[L"Application name"] = json::value::string(utility::conversions::to_utf16string("HealthCheck"));
+	 answer[L"OS"] = json::value::string(utility::conversions::to_utf16string("Windows"));
+	 answer[L"version"] = json::value::string(utility::conversions::to_utf16string("10.0.17763.0"));
+	 answer[L"IP Address"] = json::value::string(utility::conversions::to_utf16string(IP));
+	for (auto const & p : spec)
+	{
+		answer[p.first] = json::value::string(p.second);
+	}
+
+	display_json(json::value::null(), L"R: ");
+	display_json(answer, L"S: ");
+
+	request.reply(status_codes::OK, answer);
+
+}
+
+
+
+int main()
+{
+	http_listener listener(L"http://localhost/HealthC/");
+
+
+		listener.support(methods::GET, handle_get);
+
+
+	try
+	{
+		listener
+			.open()
+			.then([&listener]() {TRACE(L"\nstarting to listen\n"); })
+			.wait();
+
+		while (true);
+	}
+	catch (exception const & e)
+	{
+		wcout << e.what() << endl;
+	}
+
+	return 0;
+}
+
+	 
+
